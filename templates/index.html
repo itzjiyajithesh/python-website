@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reading Diary</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to Reading Diary</h1>
+        <p>Your personal place to explore and read book reviews.</p>
+
+        <a href="{{ url_for('create_account') }}">
+            <button class="main-btn">Let's Get Started!</button>
+        </a>
+    </div>
+</body>
+</html>

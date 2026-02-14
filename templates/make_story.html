@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Make Your Own Story</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="toolbar">
+    <a href="{{ url_for('main') }}">Home</a>
+</div>
+
+<div class="container">
+    <h1>Make Your Own Story</h1>
+
+    <form method="POST">
+        <textarea name="story" rows="10" cols="50" placeholder="Write your story here..."></textarea><br><br>
+        <button type="submit" class="main-btn">Save Story</button>
+    </form>
+</div>
+
+</body>
+</html>
