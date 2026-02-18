@@ -1,209 +1,193 @@
-from flask import Flask, render_template_string, request, redirect, session, url_for
+from flask import Flask, render_template, request, redirect, session, url_for
 import sqlite3
-import hashlib
+import random
 import os
 
-app = Flask(
-    __name__,
-    static_folder="static",
-    static_url_path="/static"
-)
-app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
+app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "dev-key")
 
-# ---------- NO CACHE ----------
-@app.after_request
-def add_header(response):
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    return response
+DATABASE = "users.db"
 
-# ---------- DATABASE ----------
+
+# ---------------- DATABASE ---------------- #
+
 def get_db():
-    return sqlite3.connect("users.db")
+    return sqlite3.connect(DATABASE)
+
 
 def init_db():
     con = get_db()
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            email TEXT UNIQUE,
-            password TEXT
-        )
+    cur = con.cursor()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        email TEXT UNIQUE,
+        password TEXT,
+        verification_code TEXT
+    )
     """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS stories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        content TEXT,
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )
+    """)
+
     con.commit()
     con.close()
 
+
 init_db()
 
-# ---------- BASE TEMPLATE ----------
-def base_start():
-    return f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Jiya’s Reading Diary</title>
-    <link rel="stylesheet" href="{url_for('static', filename='style.css')}">
-</head>
-<body>
-"""
 
-BASE_END = """
-</body>
-</html>
-"""
+# ---------------- ROUTES ---------------- #
 
-# ---------- HOME ----------
 @app.route("/")
 def home():
-    user = session.get("user")
+    return render_template("index.html")
 
-    if not user:
-        return render_template_string(
-            base_start() + """
-            <div style="max-width:900px;margin:90px auto;text-align:center;" class="glow-box">
-                <img src="{{ url_for('static', filename='J.png') }}" width="300"><br><br>
 
-                <h2>Welcome to Jiya’s Reading Diary</h2>
+# -------- CREATE ACCOUNT -------- #
 
-                <p>
-                    This is a personal reading space where stories live, genres unfold,
-                    and readers discover worlds through books.
-                    <br><br>
-                    Founded by Jiya, this app is built for thoughtful readers who love
-                    reflection, imagination, and storytelling.
-                </p>
-
-                <br><br>
-
-                <button class="glow-btn" onclick="location.href='/signup'">
-                    Let’s Get Started!
-                </button>
-            </div>
-            """ + BASE_END
-        )
-
-    return render_template_string(
-        base_start() + """
-        <div class="layout">
-            <div class="sidebar">
-                <a href="/profile">👤 Profile</a>
-                <a href="/genres">📚 Genres</a>
-                <a href="/story">✍ Make Your Own Story</a>
-                <a href="/settings">⚙ Settings</a>
-                <a href="/logout">🚪 Logout</a>
-            </div>
-
-            <div class="content">
-                <div class="glow-box" style="max-width:850px;text-align:center;">
-                    <img src="{{ url_for('static', filename='J.png') }}" width="300"><br><br>
-
-                    <h2>Account successfully created!</h2>
-                    <h3>Welcome {{ user }}!</h3>
-
-                    <br><br>
-
-                    <button class="genre-btn" onclick="location.href='/genre/Fantasy'">Fantasy</button>
-                    <button class="genre-btn" onclick="location.href='/genre/Romance'">Romance</button>
-                    <button class="genre-btn" onclick="location.href='/genre/Mystery'">Mystery</button>
-                    <button class="genre-btn" onclick="location.href='/genre/Sci-Fi'">Sci-Fi</button>
-                </div>
-            </div>
-        </div>
-        """ + BASE_END,
-        user=user
-    )
-
-# ---------- SIGNUP ----------
-@app.route("/signup", methods=["GET", "POST"])
-def signup():
+@app.route("/create_account", methods=["GET", "POST"])
+def create_account():
     if request.method == "POST":
         name = request.form["name"]
         email = request.form["email"]
-        password = hashlib.sha256(request.form["password"].encode()).hexdigest()
+        password = request.form["password"]
 
         con = get_db()
-        con.execute(
-            "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
-            (name, email, password)
+        cur = con.cursor()
+
+        try:
+            cur.execute(
+                "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
+                (name, email, password),
+            )
+            con.commit()
+        except:
+            con.close()
+            return "Email already exists."
+
+        con.close()
+        return redirect(url_for("login"))
+
+    return render_template("create_account.html")
+
+
+# -------- LOGIN STEP 1 (Enter Email) -------- #
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form["email"]
+
+        con = get_db()
+        cur = con.cursor()
+
+        cur.execute("SELECT id FROM users WHERE email = ?", (email,))
+        user = cur.fetchone()
+
+        if not user:
+            con.close()
+            return "Email not found."
+
+        code = str(random.randint(100000, 999999))
+        cur.execute(
+            "UPDATE users SET verification_code = ? WHERE email = ?",
+            (code, email),
         )
         con.commit()
         con.close()
 
-        session["user"] = name
-        return redirect("/")
+        session["pending_email"] = email
 
-    return render_template_string(
-        base_start() + """
-        <div style="max-width:520px;margin:90px auto;" class="glow-box">
-            <h2>Create an Account</h2>
+        print("Verification Code:", code)  # Simulated email
 
-            <form method="post">
-                <input name="name" placeholder="Name" required>
-                <input name="email" type="email" placeholder="Email" required>
-                <input name="password" type="password" placeholder="Password" required>
+        return redirect(url_for("verify"))
 
-                <br>
+    return render_template("login.html")
 
-                <button class="glow-btn">Submit</button>
-            </form>
 
-            <p style="margin-top:18px;">
-                If you already have an account, <a href="/">Sign In</a>
-            </p>
-        </div>
-        """ + BASE_END
-    )
+# -------- LOGIN STEP 2 (Enter Code + Password) -------- #
 
-# ---------- OTHER ROUTES ----------
-@app.route("/genre/<genre>")
-def genre_page(genre):
-    return render_template_string(
-        base_start() + f"""
-        <div style="max-width:900px;margin:90px auto;" class="glow-box">
-            <h1>{genre}</h1>
-            <p>Curated book reviews appear here.</p>
-        </div>
-        """ + BASE_END
-    )
+@app.route("/verify", methods=["GET", "POST"])
+def verify():
+    if request.method == "POST":
+        code = request.form["code"]
+        password = request.form["password"]
+        email = session.get("pending_email")
 
-@app.route("/story")
+        con = get_db()
+        cur = con.cursor()
+
+        cur.execute(
+            "SELECT id, verification_code FROM users WHERE email = ? AND password = ?",
+            (email, password),
+        )
+        user = cur.fetchone()
+
+        if user and user[1] == code:
+            session["user_id"] = user[0]
+            session.pop("pending_email", None)
+            con.close()
+            return redirect(url_for("main"))
+
+        con.close()
+        return "Invalid code or password."
+
+    return render_template("verify.html")
+
+
+# -------- MAIN PAGE -------- #
+
+@app.route("/main")
+def main():
+    if "user_id" not in session:
+        return redirect(url_for("home"))
+
+    return render_template("main.html")
+
+
+# -------- STORY PAGE -------- #
+
+@app.route("/story", methods=["GET", "POST"])
 def story():
-    return render_template_string(
-        base_start() + """
-        <div style="max-width:900px;margin:90px auto;" class="glow-box">
-            <h1>Make Your Own Story</h1>
-            <textarea rows="14" placeholder="Begin your story here..."></textarea>
-        </div>
-        """ + BASE_END
-    )
+    if "user_id" not in session:
+        return redirect(url_for("home"))
 
-@app.route("/profile")
-def profile():
-    return render_template_string(
-        base_start() + """
-        <div style="max-width:600px;margin:90px auto;" class="glow-box">
-            <h2>Profile Page</h2>
-        </div>
-        """ + BASE_END
-    )
+    user_id = session["user_id"]
 
-@app.route("/settings")
-def settings():
-    return render_template_string(
-        base_start() + """
-        <div style="max-width:600px;margin:90px auto;" class="glow-box">
-            <h2>Settings</h2>
-        </div>
-        """ + BASE_END
-    )
+    con = get_db()
+    cur = con.cursor()
+
+    if request.method == "POST":
+        content = request.form["story"]
+
+        cur.execute("DELETE FROM stories WHERE user_id = ?", (user_id,))
+        cur.execute(
+            "INSERT INTO stories (user_id, content) VALUES (?, ?)",
+            (user_id, content),
+        )
+        con.commit()
+
+    cur.execute("SELECT content FROM stories WHERE user_id = ?", (user_id,))
+    story = cur.fetchone()
+    con.close()
+
+    story_content = story[0] if story else ""
+
+    return render_template("make_story.html", story_content=story_content)
+
+
+# -------- LOGOUT -------- #
 
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect("/")
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    return redirect(url_for("home"))
