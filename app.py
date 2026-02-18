@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, redirect, session, url_for
 import sqlite3
 import random
 import os
+import smtplib
+from email.mime.text import MIMEText
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-key")
@@ -33,8 +35,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS stories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
-        content TEXT,
-        FOREIGN KEY(user_id) REFERENCES users(id)
+        content TEXT
     )
     """)
 
@@ -43,6 +44,34 @@ def init_db():
 
 
 init_db()
+
+
+# ---------------- EMAIL FUNCTION ---------------- #
+
+def send_verification_email(receiver_email, code):
+    smtp_email = os.environ.get("SMTP_EMAIL")
+    smtp_password = os.environ.get("SMTP_PASSWORD")
+
+    if not smtp_email or not smtp_password:
+        print("SMTP credentials missing")
+        return
+
+    subject = "Your Verification Code"
+    body = f"Your verification code is: {code}"
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = smtp_email
+    msg["To"] = receiver_email
+
+    try:
+        server = smtplib.SMTP("smtp.office365.com", 587)
+        server.starttls()
+        server.login(smtp_email, smtp_password)
+        server.sendmail(smtp_email, receiver_email, msg.as_string())
+        server.quit()
+    except Exception as e:
+        print("Email send error:", e)
 
 
 # ---------------- ROUTES ---------------- #
@@ -70,32 +99,42 @@ def create_account():
                 (name, email, password),
             )
             con.commit()
+
+            # Auto login
+            cur.execute("SELECT id FROM users WHERE email = ?", (email,))
+            user = cur.fetchone()
+            session["user_id"] = user[0]
+
         except sqlite3.IntegrityError:
             con.close()
             return "Email already exists."
 
         con.close()
-        return redirect(url_for("login"))
+        return redirect(url_for("main"))
 
     return render_template("create_account.html")
 
 
-# -------- LOGIN STEP 1 -------- #
+# -------- LOGIN -------- #
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         email = request.form["email"]
+        password = request.form["password"]
 
         con = get_db()
         cur = con.cursor()
 
-        cur.execute("SELECT id FROM users WHERE email = ?", (email,))
+        cur.execute(
+            "SELECT id FROM users WHERE email = ? AND password = ?",
+            (email, password),
+        )
         user = cur.fetchone()
 
         if not user:
             con.close()
-            return "Email not found."
+            return "Invalid email or password."
 
         code = str(random.randint(100000, 999999))
 
@@ -106,60 +145,58 @@ def login():
         con.commit()
         con.close()
 
+        send_verification_email(email, code)
+
+        session["pending_user"] = user[0]
         session["pending_email"] = email
 
-        # Simulated email (check Render logs to see the code)
-        print("Verification Code:", code)
+        masked_email = email[:2] + "********" + email[email.index("@"):]
 
-        return redirect(url_for("verify"))
+        return render_template("verify.html", masked_email=masked_email)
 
     return render_template("login.html")
 
 
-# -------- LOGIN STEP 2 -------- #
+# -------- VERIFY CODE -------- #
 
-@app.route("/verify", methods=["GET", "POST"])
+@app.route("/verify", methods=["POST"])
 def verify():
-    if request.method == "POST":
-        code = request.form["code"]
-        password = request.form["password"]
-        email = session.get("pending_email")
+    code = request.form["code"]
+    user_id = session.get("pending_user")
 
-        if not email:
-            return redirect(url_for("login"))
+    if not user_id:
+        return redirect(url_for("login"))
 
-        con = get_db()
-        cur = con.cursor()
+    con = get_db()
+    cur = con.cursor()
 
-        cur.execute(
-            "SELECT id, verification_code, password FROM users WHERE email = ?",
-            (email,),
-        )
-        user = cur.fetchone()
+    cur.execute(
+        "SELECT verification_code FROM users WHERE id = ?",
+        (user_id,),
+    )
+    user = cur.fetchone()
 
-        if user and user[1] == code and user[2] == password:
-            session["user_id"] = user[0]
-            session.pop("pending_email", None)
-            con.close()
-            return redirect(url_for("main"))
-
+    if user and user[0] == code:
+        session["user_id"] = user_id
+        session.pop("pending_user", None)
+        session.pop("pending_email", None)
         con.close()
-        return "Invalid code or password."
+        return redirect(url_for("main"))
 
-    return render_template("verify.html")
+    con.close()
+    return "Invalid verification code."
 
 
-# -------- MAIN PAGE -------- #
+# -------- MAIN -------- #
 
 @app.route("/main")
 def main():
     if "user_id" not in session:
         return redirect(url_for("home"))
-
     return render_template("main.html")
 
 
-# -------- STORY PAGE -------- #
+# -------- STORY -------- #
 
 @app.route("/story", methods=["GET", "POST"])
 def story():
@@ -174,7 +211,6 @@ def story():
     if request.method == "POST":
         content = request.form["story"]
 
-        # Remove previous story (1 story per user)
         cur.execute("DELETE FROM stories WHERE user_id = ?", (user_id,))
         cur.execute(
             "INSERT INTO stories (user_id, content) VALUES (?, ?)",
@@ -190,8 +226,6 @@ def story():
 
     return render_template("make_story.html", story_content=story_content)
 
-
-# -------- LOGOUT -------- #
 
 @app.route("/logout")
 def logout():
