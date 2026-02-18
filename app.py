@@ -70,7 +70,7 @@ def create_account():
                 (name, email, password),
             )
             con.commit()
-        except:
+        except sqlite3.IntegrityError:
             con.close()
             return "Email already exists."
 
@@ -80,7 +80,7 @@ def create_account():
     return render_template("create_account.html")
 
 
-# -------- LOGIN STEP 1 (Enter Email) -------- #
+# -------- LOGIN STEP 1 -------- #
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -98,6 +98,7 @@ def login():
             return "Email not found."
 
         code = str(random.randint(100000, 999999))
+
         cur.execute(
             "UPDATE users SET verification_code = ? WHERE email = ?",
             (code, email),
@@ -107,14 +108,15 @@ def login():
 
         session["pending_email"] = email
 
-        print("Verification Code:", code)  # Simulated email
+        # Simulated email (check Render logs to see the code)
+        print("Verification Code:", code)
 
         return redirect(url_for("verify"))
 
     return render_template("login.html")
 
 
-# -------- LOGIN STEP 2 (Enter Code + Password) -------- #
+# -------- LOGIN STEP 2 -------- #
 
 @app.route("/verify", methods=["GET", "POST"])
 def verify():
@@ -123,16 +125,19 @@ def verify():
         password = request.form["password"]
         email = session.get("pending_email")
 
+        if not email:
+            return redirect(url_for("login"))
+
         con = get_db()
         cur = con.cursor()
 
         cur.execute(
-            "SELECT id, verification_code FROM users WHERE email = ? AND password = ?",
-            (email, password),
+            "SELECT id, verification_code, password FROM users WHERE email = ?",
+            (email,),
         )
         user = cur.fetchone()
 
-        if user and user[1] == code:
+        if user and user[1] == code and user[2] == password:
             session["user_id"] = user[0]
             session.pop("pending_email", None)
             con.close()
@@ -169,6 +174,7 @@ def story():
     if request.method == "POST":
         content = request.form["story"]
 
+        # Remove previous story (1 story per user)
         cur.execute("DELETE FROM stories WHERE user_id = ?", (user_id,))
         cur.execute(
             "INSERT INTO stories (user_id, content) VALUES (?, ?)",
@@ -191,3 +197,10 @@ def story():
 def logout():
     session.clear()
     return redirect(url_for("home"))
+
+
+# -------- RENDER PORT FIX -------- #
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
