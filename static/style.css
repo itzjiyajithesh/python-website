@@ -1,93 +1,53 @@
-body {
-    background: url("/static/Book2.png");
-    background-size: cover;
-    margin: 0;
-    font-family: cursive;
-    color: #FF914D;
+body{
+background-image:url("/static/Book2.png");
+background-size:cover;
+font-family:cursive;
+margin:0;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
 }
 
-.glow-box {
-    background: rgba(30, 0, 40, 0.9);
-    border-radius: 25px;
-    padding: 40px;
-    animation: glowBorder 6s infinite;
+.box{
+width:800px;
+padding:40px;
+background:#22002a;
+border-radius:20px;
+border:4px solid;
+animation:borderGlow 6s infinite linear;
+text-align:center;
+color:#ff914d;
 }
 
-@keyframes glowBorder {
-    0% { box-shadow: 0 0 15px #ffde59; }
-    50% { box-shadow: 0 0 35px #ff914d; }
-    100% { box-shadow: 0 0 15px #b84dff; }
+@keyframes borderGlow{
+0%{border-color:#ffde59;}
+33%{border-color:#ff914d;}
+66%{border-color:#b84dff;}
+100%{border-color:#ffde59;}
 }
 
-.glow-btn {
-    padding: 18px 45px;
-    font-size: 24px;
-    border: none;
-    border-radius: 30px;
-    cursor: pointer;
-    background: #ffde59;
-    transition: transform 0.3s, box-shadow 0.3s;
+input,textarea{
+width:90%;
+padding:12px;
+margin:10px;
+border-radius:12px;
+border:2px solid gold;
+background:#4b005a;
+color:#fff;
 }
 
-.glow-btn:hover {
-    transform: scale(1.1);
-    box-shadow: 0 0 30px #ff914d;
+button{
+padding:15px 30px;
+background:#ffde59;
+border:none;
+border-radius:20px;
+font-size:18px;
+cursor:pointer;
+transition:0.3s;
 }
 
-input, textarea {
-    width: 100%;
-    padding: 15px;
-    margin: 12px 0;
-    border-radius: 14px;
-    border: 2px solid transparent;
-    background: #3a004d;
-    color: #ffde59;
-}
-
-input:focus, textarea:focus {
-    outline: none;
-    border-color: #ffde59;
-    box-shadow: 0 0 15px #ffde59;
-}
-
-.layout {
-    display: flex;
-    height: 100vh;
-}
-
-.sidebar {
-    width: 240px;
-    background: #22002A;
-    padding: 25px;
-}
-
-.sidebar a {
-    display: block;
-    color: #FF914D;
-    text-decoration: none;
-    margin: 15px 0;
-    font-size: 18px;
-}
-
-.content {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.genre-btn {
-    margin: 12px;
-    padding: 16px 32px;
-    border-radius: 22px;
-    border: none;
-    background: #ffde59;
-    font-size: 18px;
-    cursor: pointer;
-    transition: transform 0.3s, box-shadow 0.3s;
-}
-
-.genre-btn:hover {
-    transform: scale(1.1);
-    box-shadow: 0 0 25px #ff914d;
+button:hover{
+transform:scale(1.1);
+box-shadow:0 0 20px #ffde59;
 }
