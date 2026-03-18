@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="box">
+
+<img src="/static/J.png" class="logo">
+
+<h1>Welcome {{name}}</h1>
+
+<h2>Select a Genre</h2>
+
+<div class="genres">
+
+{% for g in genres %}
+
+<a href="/genre/{{g}}">
+<button class="genrebtn">{{g}}</button>
+</a>
+
+{% endfor %}
+
+</div>
+
+</div>
+
+{% endblock %}

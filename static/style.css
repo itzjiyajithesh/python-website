@@ -1,53 +1,116 @@
 body{
 background-image:url("/static/Book2.png");
 background-size:cover;
-font-family:cursive;
+background-position:center;
 margin:0;
+font-family:Georgia;
+height:100vh;
 display:flex;
 justify-content:center;
 align-items:center;
-height:100vh;
 }
+
+/* RIGHT TOOLBAR */
+
+.toolbar{
+position:fixed;
+right:0;
+top:0;
+height:100%;
+width:200px;
+background:rgba(0,0,0,0.7);
+display:flex;
+flex-direction:column;
+padding:20px;
+z-index:10;
+}
+
+.toolbar a{
+color:white;
+text-decoration:none;
+margin:15px 0;
+font-size:18px;
+}
+
+/* MAIN CONTENT CENTER */
+
+.content{
+width:100%;
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+/* MAIN BOX */
 
 .box{
-width:800px;
+background:rgba(60,0,80,0.85);  /* FIXED translucency */
 padding:40px;
-background:#22002a;
 border-radius:20px;
-border:4px solid;
-animation:borderGlow 6s infinite linear;
+width:650px;
 text-align:center;
 color:#ff914d;
+
+/* glowing border */
+border:4px solid;
+animation:glow 4s linear infinite;
 }
 
-@keyframes borderGlow{
+/* BORDER ANIMATION */
+
+@keyframes glow{
 0%{border-color:#ffde59;}
-33%{border-color:#ff914d;}
-66%{border-color:#b84dff;}
-100%{border-color:#ffde59;}
+50%{border-color:#ff914d;}
+100%{border-color:#b84dff;}
 }
 
-input,textarea{
+/* LOGO */
+
+.logo{
+width:280px;
+margin-bottom:20px;
+}
+
+/* INPUT FIELDS */
+
+input, textarea{
 width:90%;
 padding:12px;
 margin:10px;
 border-radius:12px;
 border:2px solid gold;
 background:#4b005a;
-color:#fff;
+color:white;
+outline:none;
+transition:0.3s;
 }
+
+/* GLOW ON FOCUS */
+
+input:focus, textarea:focus{
+box-shadow:0 0 12px gold;
+border-color:#ffde59;
+}
+
+/* BUTTONS */
 
 button{
 padding:15px 30px;
 background:#ffde59;
 border:none;
 border-radius:20px;
-font-size:18px;
+font-size:16px;
 cursor:pointer;
 transition:0.3s;
 }
 
 button:hover{
-transform:scale(1.1);
+transform:scale(1.12);
 box-shadow:0 0 20px #ffde59;
+}
+
+/* GENRE BUTTONS */
+
+.genrebtn{
+margin:10px;
 }
